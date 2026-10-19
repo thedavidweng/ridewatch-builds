@@ -52,8 +52,8 @@ def main():
                 key = work / 'source-key'
                 key.write_text(os.environ['SOURCE_DEPLOY_KEY'].rstrip() + '\n')
                 known = work / 'known-hosts'
-                with urllib.request.urlopen('https://api.github.com/meta', timeout=30) as response:
-                    metadata = json.load(response)
+                metadata = json.loads(run(['curl', '--fail', '--silent', '--show-error',
+                                           'https://api.github.com/meta'], capture=True))
                 known.write_text(''.join('github.com ' + value + '\n' for value in metadata['ssh_keys']))
                 git_env = dict(env, GIT_SSH_COMMAND=f'ssh -i {shlex.quote(str(key))} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile={shlex.quote(str(known))}')
                 source = work / 'source'
@@ -160,8 +160,9 @@ def main():
                 for path, name in [(ipas[0], 'RideWatch.ipa.age'), (receipt, 'verification.json.age')]:
                     run(['age', '-r', recipient, '-o', str(sealed / name), str(path)])
                 success = True
-            except Exception:
-                # Never echo exceptions from private source, Xcode, or signing tools.
+            except Exception as error:
+                # Diagnostics stay encrypted, never in the public Actions stream.
+                log.write((type(error).__name__ + ': ' + str(error) + '\n').encode())
                 print('::error::Private build failed during ' + phase + '; inspect encrypted diagnostics.')
             finally:
                 if keychain:
