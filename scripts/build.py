@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.request
 import zipfile
 
 
@@ -51,7 +52,8 @@ def main():
                 key = work / 'source-key'
                 key.write_text(os.environ['SOURCE_DEPLOY_KEY'])
                 known = work / 'known-hosts'
-                metadata = json.loads(run(['gh', 'api', 'meta'], capture=True))
+                with urllib.request.urlopen('https://api.github.com/meta', timeout=30) as response:
+                    metadata = json.load(response)
                 known.write_text(''.join('github.com ' + value + '\n' for value in metadata['ssh_keys']))
                 git_env = dict(env, GIT_SSH_COMMAND=f'ssh -i {shlex.quote(str(key))} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile={shlex.quote(str(known))}')
                 source = work / 'source'
