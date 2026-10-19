@@ -1,0 +1,49 @@
+name: Signed iOS build
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full commit SHA on the private source repository main branch
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-ios
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'thedavidweng/ridewatch-builds' && github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 60
+    environment: ios-signing
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install public build tools
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+        run: brew install age xcodegen
+      - name: Build and sign privately
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_DEPLOY_KEY: ${{ secrets.SOURCE_DEPLOY_KEY }}
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_ADHOC_PROFILE_BASE64: ${{ secrets.IOS_ADHOC_PROFILE_BASE64 }}
+          ARTIFACT_RECIPIENT: ${{ vars.ARTIFACT_RECIPIENT }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+        run: python3 scripts/build.py
+      - name: Upload encrypted results only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signed-ios-${{ github.run_id }}-${{ github.run_attempt }}
+          path: sealed/*.age
+          if-no-files-found: error
+          retention-days: 7
