@@ -50,7 +50,7 @@ def main():
             try:
                 phase = 'checkout'
                 key = work / 'source-key'
-                key.write_text(os.environ['SOURCE_DEPLOY_KEY'])
+                key.write_text(os.environ['SOURCE_DEPLOY_KEY'].rstrip() + '\n')
                 known = work / 'known-hosts'
                 with urllib.request.urlopen('https://api.github.com/meta', timeout=30) as response:
                     metadata = json.load(response)
